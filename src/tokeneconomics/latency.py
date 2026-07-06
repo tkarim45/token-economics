@@ -172,7 +172,7 @@ class AnthropicBackend:
 class BedrockBackend(AnthropicBackend):
     """Real streaming measurement against Claude on AWS Bedrock (extra: `bedrock`)."""
 
-    def __init__(self, model: str = "us.anthropic.claude-3-5-haiku-20241022-v1:0") -> None:
+    def __init__(self, model: str = "us.anthropic.claude-haiku-4-5-20251001-v1:0") -> None:
         try:
             from anthropic import AnthropicBedrock
         except ImportError as exc:  # pragma: no cover - extras path

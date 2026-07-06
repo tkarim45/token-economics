@@ -75,9 +75,11 @@ There are **two distinct categories** of number below, kept strictly separate:
   from the labeled pricing snapshot in [`data/pricing.yaml`](data/pricing.yaml).
   These are genuine computed results, not guesses — but they are only as current
   as the snapshot. **Verify against current provider pricing before quoting.**
-- **(B) Latency** is **mock-backend synthetic latency** (seeded, deterministic).
-  It is *not* real-provider TTFT/tokens-per-sec. Real-provider streaming
-  measurement (Anthropic API / AWS Bedrock, temperature 0) is still **TBD**.
+- **(B) Latency** now has **two clearly separated sub-parts**: **(B1)** real
+  measured TTFT/tokens-per-sec from streaming AWS Bedrock Claude Haiku 4.5 at
+  temperature 0, and **(B2)** the original **mock-backend synthetic latency**
+  (seeded, deterministic) kept for the reproducible offline path. The synthetic
+  numbers are *not* real-provider latency and are labeled as such.
 
 ### (A) Computed from the pricing snapshot in `data/pricing.yaml`
 
@@ -123,19 +125,46 @@ $0.060000/false hit = one large-tier retry):
 Breakeven false-hit cost (`cache.breakeven_false_hit_cost(12000, 1e6, 0.02)`) =
 **$0.60/false hit** — above that price, every additional cache hit *loses* money.
 
-### (B) Mock backend — synthetic latency (seeded), real-provider measurement TBD
+### (B1) Real provider — measured against AWS Bedrock, Claude Haiku 4.5
+
+**Real provider: AWS Bedrock, Claude Haiku 4.5**
+(`us.anthropic.claude-haiku-4-5-20251001-v1:0`), region **us-east-1**,
+temperature 0, **N = 20** streamed generations (max_tokens 256), measured
+2026-07-06. TTFT = wall-clock to first streamed text delta; tokens/sec =
+output tokens / (total − TTFT). Reproduces with:
+
+```bash
+set -a; source .env; set +a; export AWS_REGION=us-east-1
+token-economics measure --backend bedrock --samples 20 --max-tokens 256
+# (needs Bedrock creds in .env; the harness pins the Haiku 4.5 model id above)
+```
+
+| Metric | p50 | p95 | p99 |
+|---|---:|---:|---:|
+| TTFT (s) — *real Bedrock Haiku 4.5* | 1.050 | 1.941 | 2.011 |
+| Tokens/sec — *real Bedrock Haiku 4.5* | 89.2 | 107.9 | 125.4 |
+
+These are the exact stdout of one N=20 run. **Network/throttle variance is
+real:** a second N=20 run agreed on p50/p95 TTFT (1.120 / 3.796 s) and
+tokens/sec (90.0 / 104.4), but its TTFT **p99 spiked to 41.9 s** on a single
+throttled request — the TTFT tail is dominated by occasional Bedrock throttling
+/ retry, not steady-state decode. Median TTFT (~1.0–1.1 s) and tokens/sec
+(~89–90 median, ~105–108 p95) were stable across both runs. Treat the p99 TTFT
+as throttle-sensitive; re-measure for your own account/region before quoting.
+
+### (B2) Mock backend — synthetic latency (seeded), for the offline path
 
 **These are NOT real API latency numbers.** They come from the deterministic
 mock streaming backend (`MockBackend`, seeded `random.Random`) and exist only to
-exercise the p50/p95/p99 aggregation path. Real-provider TTFT/tokens-per-sec is
-still to be measured.
+exercise the p50/p95/p99 aggregation path key-free and reproducibly. Compare to
+(B1) above for the real numbers.
 
 `token-economics measure --mock --seed 42 --samples 20` (identical across runs):
 
 | Metric | p50 | p95 | p99 |
 |---|---:|---:|---:|
-| TTFT (s) — *mock* | 0.518 | 0.765 | 0.873 |
-| Tokens/sec — *mock* | 67.3 | 74.6 | 76.1 |
+| TTFT (s) — *mock/synthetic* | 0.518 | 0.765 | 0.873 |
+| Tokens/sec — *mock/synthetic* | 67.3 | 74.6 | 76.1 |
 
 *Reproduce:* `token-economics measure --mock --seed 42 --samples 20`.
 
@@ -146,10 +175,16 @@ Test suite: **22 passed** (`python -m pytest -q`).
 At a 3:1 input:output token ratio, **output tokens dominate the bill**: for the
 canonical workload the medium tier's $12,000/day splits $4,500 input / $7,500
 output — because output is priced ~5× input ($15 vs $3 per 1M tokens in the
-snapshot). This is a computed fact from the snapshot, not a measurement. The
-latency finding (does TTFT matter more to UX than tokens/sec, and by how much
-per tier) requires real-provider streaming and remains **TBD** — the mock
-numbers above cannot answer it.
+snapshot). This is a computed fact from the snapshot, not a measurement.
+
+On latency, the **real** Bedrock Haiku 4.5 measurement (B1) shows the interesting
+tension is in the **TTFT tail, not the median**: median TTFT sits near ~1.0 s and
+tokens/sec near ~90 tok/s, and both are stable, but TTFT p99 is throttle-dominated
+— one N=20 run measured 2.0 s, another 41.9 s, entirely from a single throttled
+request. So for a user-facing streaming app the p99 budget is set by provider
+throttling behavior, not by steady-state decode speed — you provision for the
+retry, not the median. The synthetic mock numbers (B2) understate real TTFT
+(0.5 s mock median vs ~1.0 s measured) and cannot show this tail at all.
 
 ## Related sibling projects
 
@@ -168,11 +203,13 @@ numbers above cannot answer it.
 - [x] CLI: `estimate | measure | frontier | report`, all `--mock`
 - [x] Markdown case-study generator (charts stubbed)
 - [x] Cost/routing/cache math computed from the pricing snapshot → filled "Results (A)"
-- [x] Mock (synthetic, seeded) latency percentiles recorded → "Results (B)"
-- [ ] Real-provider streaming latency runs (Anthropic API + Bedrock, temp 0) — still pending
+- [x] Mock (synthetic, seeded) latency percentiles recorded → "Results (B2)"
+- [x] Real-provider streaming latency runs — measured against AWS Bedrock Claude
+  Haiku 4.5 (temp 0, N=20, us-east-1) → "Results (B1)"
 - [ ] Matplotlib charts in the report
 - [ ] Measured quality scores for the routing frontier (from llm-router evals)
-- [x] Honest finding written (cost side, from snapshot); latency finding still pending real runs
+- [x] Honest finding written — cost side (from snapshot) + latency side (real
+  Bedrock Haiku 4.5: TTFT tail is throttle-dominated, not decode-bound)
 
 ## License
 
