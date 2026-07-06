@@ -1,0 +1,33 @@
+# ---------------------------------------------------------------------------
+# PRICING SNAPSHOT — VERIFY BEFORE USE
+#
+# These are per-1M-token USD prices captured as a point-in-time snapshot for
+# reproducible arithmetic. Provider pricing changes; ALWAYS verify against the
+# current published price pages (anthropic.com/pricing, AWS Bedrock pricing)
+# before using any number from this file in a real budget, report, or client
+# deliverable. Nothing here is presented as current fact.
+#
+# Schema (validated by tokeneconomics.pricing.load_pricing):
+#   models.<id>.tier              one of: small | medium | large
+#   models.<id>.input_per_mtok    USD per 1M input tokens  (> 0)
+#   models.<id>.output_per_mtok   USD per 1M output tokens (> 0)
+#   models.<id>.notes             optional free text
+# ---------------------------------------------------------------------------
+snapshot_note: "snapshot — verify against current provider pricing before use"
+
+models:
+  claude-haiku:
+    tier: small
+    input_per_mtok: 0.80
+    output_per_mtok: 4.00
+    notes: "small/fast tier — snapshot, verify before use"
+  claude-sonnet:
+    tier: medium
+    input_per_mtok: 3.00
+    output_per_mtok: 15.00
+    notes: "mid tier — snapshot, verify before use"
+  claude-opus:
+    tier: large
+    input_per_mtok: 15.00
+    output_per_mtok: 75.00
+    notes: "large tier — snapshot, verify before use"

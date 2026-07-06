@@ -1,0 +1,30 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "token-economics"
+version = "0.1.0"
+description = "The LLM-cost interview question answered with measured data — budget calculator, TTFT/tokens-per-sec harness, routing and cache economics"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Taimour Abdul Karim", email = "taimour.a.karim@gmail.com" }]
+keywords = ["llm", "tokens", "cost-estimation", "latency", "claude", "economics"]
+dependencies = ["PyYAML>=6.0"]
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+claude = ["anthropic>=0.40"]
+bedrock = ["anthropic[bedrock]>=0.40", "python-dotenv>=1.0"]
+charts = ["matplotlib>=3.8"]
+
+[project.scripts]
+token-economics = "tokeneconomics.cli:main"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/tokeneconomics"]
+
+[tool.pytest.ini_options]
+pythonpath = ["src"]
+testpaths = ["tests"]
