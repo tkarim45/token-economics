@@ -14,6 +14,13 @@ plus a reusable toolkit: a real budget calculator, a streaming TTFT/tokens-per-s
 measurement harness, and the routing/caching economics that decide when the
 optimizations are worth it.
 
+
+## Architecture
+
+![architecture](docs/assets/architecture.png)
+
+*Interactive/exportable version: [`docs/assets/architecture.html`](docs/assets/architecture.html).*
+
 ## How it works
 
 ```
